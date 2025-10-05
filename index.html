@@ -3,30 +3,418 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Electron + Three.js</title>
+  <title>Storme - AI Assistant</title>
   <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      background: transparent;
+    html, body, #root { 
+      height: 100%; 
+      margin: 0; 
+      background: transparent; 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
     
-    canvas {
-      display: block;
-      outline: none !important;
+    .storme-container {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, rgba(0,0,0,0.9), rgba(0,0,0,0.7));
+      color: white;
+      padding: 20px;
+      box-sizing: border-box;
     }
     
-    * {
-      outline: none !important;
+    .status-indicator {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: rgba(0,0,0,0.8);
+      padding: 15px;
+      border-radius: 10px;
+      font-size: 14px;
     }
     
-    *:focus {
-      outline: none !important;
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 8px;
+    }
+    
+    .status-dot.active { background: #00ff00; }
+    .status-dot.inactive { background: #ff4444; }
+    .status-dot.listening { background: #00aaff; animation: pulse 1s infinite; }
+    
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+    
+    .demo-controls {
+      background: rgba(0,0,0,0.8);
+      padding: 25px;
+      border-radius: 15px;
+      max-width: 500px;
+      width: 100%;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .conversation-container {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 500px;
+      height: 400px;
+      background: rgba(0,0,0,0.9);
+      border-radius: 15px;
+      padding: 20px;
+      display: none;
+      flex-direction: column;
+    }
+    
+    .conversation-container.active {
+      display: flex;
+    }
+    
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      margin-bottom: 15px;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 10px;
+      background: rgba(255,255,255,0.05);
+    }
+    
+    .message {
+      margin: 8px 0;
+      padding: 8px 12px;
+      border-radius: 8px;
+      max-width: 80%;
+    }
+    
+    .message.user {
+      background: #4444ff;
+      margin-left: auto;
+      text-align: right;
+    }
+    
+    .message.ai {
+      background: #333;
+      margin-right: auto;
+    }
+    
+    .message.system {
+      background: #ffaa00;
+      color: black;
+      text-align: center;
+      font-weight: bold;
+    }
+    
+    .chat-input-container {
+      display: flex;
+      gap: 10px;
+    }
+    
+    .chat-input {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #666;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.1);
+      color: white;
+    }
+    
+    .chat-input::placeholder {
+      color: #aaa;
+    }
+    
+    .chat-send {
+      padding: 10px 20px;
+      background: #4444ff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    
+    .chat-send:hover {
+      background: #5555ff;
+    }
+    
+    .close-conversation {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      background: #ff4444;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 25px;
+      height: 25px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    
+    .demo-button {
+      background: linear-gradient(135deg, #4444ff, #6666ff);
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      margin: 8px 5px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    .demo-button:hover { 
+      background: linear-gradient(135deg, #5555ff, #7777ff);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+    }
+    
+    .demo-button:active { 
+      transform: translateY(0);
+      background: linear-gradient(135deg, #3333ff, #5555ff);
+    }
+    
+    .demo-input {
+      width: 100%;
+      padding: 15px;
+      margin: 15px 0;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-radius: 10px;
+      background: rgba(255,255,255,0.1);
+      color: white;
+      font-size: 16px;
+      box-sizing: border-box;
+      transition: border-color 0.3s ease;
+    }
+    
+    .demo-input:focus {
+      outline: none;
+      border-color: #00aaff;
+      background: rgba(255,255,255,0.15);
+    }
+    
+    .demo-input::placeholder { 
+      color: rgba(255,255,255,0.6);
     }
   </style>
 </head>
 <body>
-  <script src="src/renderer.js"></script>
+  <div id="root">
+    <div class="storme-container">
+      <div class="status-indicator">
+        <span class="status-dot inactive" id="statusDot"></span>
+        <span id="statusText">Initializing Storme...</span>
+        <br>
+        <span class="status-dot inactive" id="voiceDot"></span>
+        <span id="voiceText">Voice: Not listening</span>
+      </div>
+      
+      <div class="demo-controls">
+        <h3 style="margin-top: 0; text-align: center; color: #00aaff;">🎤 Storme AI Assistant</h3>
+        
+        <div style="margin: 20px 0;">
+          <input type="text" class="demo-input" id="commandInput" placeholder="Enter your command (e.g., 'open chrome', 'take a screenshot')">
+        </div>
+        
+        <div style="text-align: center; margin: 20px 0;">
+          <button class="demo-button" onclick="testCommand()">🚀 Test Command</button>
+          <button class="demo-button" onclick="startVoiceListening()">🎤 Start Voice</button>
+          <button class="demo-button" onclick="startConversation()">💬 Chat</button>
+          <button class="demo-button" onclick="refreshStatus()">🔄 Status</button>
+        </div>
+        
+        <div style="text-align: center; margin-top: 20px; color: rgba(255,255,255,0.8);">
+          <small><strong>Demo Mode:</strong> Use text input to test AI commands</small>
+          <br>
+          <small>Examples: "open chrome", "take a screenshot", "what time is it", "compose an email"</small>
+        </div>
+      </div>
+      
+      <!-- Conversation Interface -->
+      <div class="conversation-container" id="conversationContainer">
+        <button class="close-conversation" onclick="closeConversation()">×</button>
+        <h3 style="margin-top: 0; color: #00ff00;">💬 Storme Conversation</h3>
+        <div class="chat-messages" id="chatMessages">
+          <div class="message ai">
+            👋 Hi! I'm Storme, your AI assistant. What would you like me to help you with?
+          </div>
+        </div>
+        <div class="chat-input-container">
+          <input type="text" class="chat-input" id="chatInput" placeholder="Type your message..." onkeypress="handleChatKeyPress(event)">
+          <button class="chat-send" onclick="sendChatMessage()">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    let isListening = false;
+    let conversationActive = false;
+    
+    async function testCommand() {
+      const input = document.getElementById('commandInput');
+      const command = input.value.trim();
+      
+      if (!command) {
+        alert('Please enter a command');
+        return;
+      }
+      
+      try {
+        const result = await window.electronAPI.testCommand(command);
+        console.log('Command result:', result);
+        
+        if (result.success) {
+          updateStatus('Command processed: ' + command, true);
+        } else {
+          updateStatus('Error: ' + result.message, false);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        updateStatus('Error: ' + error.message, false);
+      }
+    }
+    
+    async function startVoiceListening() {
+      try {
+        addMessage('🎤 Starting voice listening...', 'system');
+        const result = await window.electronAPI.startVoiceListening();
+        if (result.success) {
+          addMessage('✅ Voice listening started!', 'system');
+          updateVoiceStatus('Voice: Starting...', true);
+        } else {
+          addMessage('❌ Error: ' + result.message, 'system');
+        }
+      } catch (error) {
+        addMessage('❌ Error: ' + error.message, 'system');
+      }
+    }
+    
+    function startConversation() {
+      const container = document.getElementById('conversationContainer');
+      container.classList.add('active');
+      conversationActive = true;
+      document.getElementById('chatInput').focus();
+    }
+    
+    function closeConversation() {
+      const container = document.getElementById('conversationContainer');
+      container.classList.remove('active');
+      conversationActive = false;
+    }
+    
+    function handleChatKeyPress(event) {
+      if (event.key === 'Enter') {
+        sendChatMessage();
+      }
+    }
+    
+    async function sendChatMessage() {
+      const input = document.getElementById('chatInput');
+      const message = input.value.trim();
+      
+      if (!message) return;
+      
+      // Add user message to chat
+      addMessage(message, 'user');
+      input.value = '';
+      
+      // Show typing indicator
+      addMessage('🤔 Thinking...', 'system');
+      
+      try {
+        const result = await window.electronAPI.testCommand(message);
+        console.log('Chat result:', result);
+        
+        // Remove typing indicator
+        removeLastMessage();
+        
+        if (result.success) {
+          addMessage(result.message, 'ai');
+          
+          // If it's asking for more details, show as system message
+          if (result.data && result.data.status === 'waiting_for_details') {
+            addMessage('💬 ' + result.message, 'system');
+          }
+        } else {
+          addMessage('❌ ' + result.message, 'ai');
+        }
+      } catch (error) {
+        removeLastMessage();
+        addMessage('❌ Error: ' + error.message, 'ai');
+      }
+    }
+    
+    function addMessage(text, type) {
+      const messagesContainer = document.getElementById('chatMessages');
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `message ${type}`;
+      messageDiv.textContent = text;
+      messagesContainer.appendChild(messageDiv);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+    
+    function removeLastMessage() {
+      const messagesContainer = document.getElementById('chatMessages');
+      const lastMessage = messagesContainer.lastElementChild;
+      if (lastMessage && lastMessage.classList.contains('system')) {
+        messagesContainer.removeChild(lastMessage);
+      }
+    }
+    
+    async function refreshStatus() {
+      try {
+        const status = await window.electronAPI.getStatus();
+        updateStatus(
+          status.initialized ? 'Storme is ready' : 'Storme not initialized',
+          status.initialized
+        );
+        
+        updateVoiceStatus(
+          status.listening ? 'Voice: Listening...' : 'Voice: Not listening',
+          status.listening
+        );
+      } catch (error) {
+        updateStatus('Error getting status', false);
+        updateVoiceStatus('Voice: Error', false);
+      }
+    }
+    
+    function updateStatus(text, active) {
+      document.getElementById('statusText').textContent = text;
+      const dot = document.getElementById('statusDot');
+      dot.className = 'status-dot ' + (active ? 'active' : 'inactive');
+    }
+    
+    function updateVoiceStatus(text, listening) {
+      document.getElementById('voiceText').textContent = text;
+      const dot = document.getElementById('voiceDot');
+      if (listening) {
+        dot.className = 'status-dot listening';
+      } else {
+        dot.className = 'status-dot ' + (listening ? 'active' : 'inactive');
+      }
+    }
+    
+    // Initialize status on load
+    window.addEventListener('DOMContentLoaded', () => {
+      setTimeout(refreshStatus, 1000);
+      
+      // Check status every 2 seconds
+      setInterval(refreshStatus, 2000);
+    });
+  </script>
 </body>
 </html>
 
