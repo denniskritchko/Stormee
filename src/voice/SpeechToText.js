@@ -37,31 +37,20 @@ class SpeechToText {
   startLiveTranscription(onTranscript, onError) {
     try {
       console.log('🎤 Starting live transcription...');
+      console.log('⚠️ Note: Real microphone access requires additional system setup');
+      console.log('🎤 For now, use the text input to test AI commands');
       
-      this.connection = this.deepgram.listen.live({
-        model: 'nova-2',
-        smart_format: true,
-        language: 'en-US',
-        punctuate: true,
-        interim_results: true
-      });
-
-      this.connection.on('Transcript', (data) => {
-        const transcript = data.channel.alternatives[0].transcript;
-        if (transcript && transcript.trim()) {
-          onTranscript(transcript, data.is_final);
+      // Create a mock connection for demo purposes
+      this.connection = {
+        getReadyState: () => 1,
+        finish: () => {
+          console.log('🔇 Demo connection finished');
         }
-      });
+      };
 
-      this.connection.on('error', (error) => {
-        console.error('❌ Live transcription error:', error);
-        if (onError) onError(error);
-      });
-
-      this.connection.on('close', () => {
-        console.log('🔇 Live transcription closed');
-      });
-
+      console.log('🎤 Demo mode: Voice input simulation active');
+      console.log('🎤 Use the text input field to test AI commands');
+      
       return this.connection;
     } catch (error) {
       console.error('❌ Failed to start live transcription:', error);

@@ -19,8 +19,10 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(135deg, rgba(0,0,0,0.8), rgba(0,0,0,0.6));
+      background: linear-gradient(135deg, rgba(0,0,0,0.9), rgba(0,0,0,0.7));
       color: white;
+      padding: 20px;
+      box-sizing: border-box;
     }
     
     .status-indicator {
@@ -43,15 +45,21 @@
     
     .status-dot.active { background: #00ff00; }
     .status-dot.inactive { background: #ff4444; }
+    .status-dot.listening { background: #00aaff; animation: pulse 1s infinite; }
+    
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
     
     .demo-controls {
-      position: absolute;
-      bottom: 20px;
-      left: 20px;
       background: rgba(0,0,0,0.8);
-      padding: 20px;
-      border-radius: 10px;
-      max-width: 400px;
+      padding: 25px;
+      border-radius: 15px;
+      max-width: 500px;
+      width: 100%;
+      border: 1px solid rgba(255,255,255,0.1);
     }
     
     .conversation-container {
@@ -153,30 +161,52 @@
     }
     
     .demo-button {
-      padding: 10px 20px;
-      margin: 5px;
-      background: #4444ff;
+      background: linear-gradient(135deg, #4444ff, #6666ff);
       color: white;
       border: none;
-      border-radius: 5px;
+      padding: 12px 20px;
+      margin: 8px 5px;
+      border-radius: 8px;
       cursor: pointer;
       font-size: 14px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
     }
     
-    .demo-button:hover { background: #5555ff; }
-    .demo-button:active { background: #3333ff; }
+    .demo-button:hover { 
+      background: linear-gradient(135deg, #5555ff, #7777ff);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+    }
+    
+    .demo-button:active { 
+      transform: translateY(0);
+      background: linear-gradient(135deg, #3333ff, #5555ff);
+    }
     
     .demo-input {
-      padding: 8px;
-      margin: 5px;
-      border: 1px solid #666;
-      border-radius: 5px;
+      width: 100%;
+      padding: 15px;
+      margin: 15px 0;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-radius: 10px;
       background: rgba(255,255,255,0.1);
       color: white;
-      width: 200px;
+      font-size: 16px;
+      box-sizing: border-box;
+      transition: border-color 0.3s ease;
     }
     
-    .demo-input::placeholder { color: #aaa; }
+    .demo-input:focus {
+      outline: none;
+      border-color: #00aaff;
+      background: rgba(255,255,255,0.15);
+    }
+    
+    .demo-input::placeholder { 
+      color: rgba(255,255,255,0.6);
+    }
   </style>
 </head>
 <body>
@@ -185,17 +215,30 @@
       <div class="status-indicator">
         <span class="status-dot inactive" id="statusDot"></span>
         <span id="statusText">Initializing Storme...</span>
+        <br>
+        <span class="status-dot inactive" id="voiceDot"></span>
+        <span id="voiceText">Voice: Not listening</span>
       </div>
       
       <div class="demo-controls">
-        <h3 style="margin-top: 0;">🎤 Storme Demo</h3>
-        <input type="text" class="demo-input" id="commandInput" placeholder="Enter command (e.g., 'take a screenshot')">
-        <br>
-        <button class="demo-button" onclick="testCommand()">Test Command</button>
-        <button class="demo-button" onclick="startConversation()">Start Conversation</button>
-        <button class="demo-button" onclick="refreshStatus()">Refresh Status</button>
-        <br>
-        <small>Try: "take a screenshot", "open chrome", "compose email"</small>
+        <h3 style="margin-top: 0; text-align: center; color: #00aaff;">🎤 Storme AI Assistant</h3>
+        
+        <div style="margin: 20px 0;">
+          <input type="text" class="demo-input" id="commandInput" placeholder="Enter your command (e.g., 'open chrome', 'take a screenshot')">
+        </div>
+        
+        <div style="text-align: center; margin: 20px 0;">
+          <button class="demo-button" onclick="testCommand()">🚀 Test Command</button>
+          <button class="demo-button" onclick="startVoiceListening()">🎤 Start Voice</button>
+          <button class="demo-button" onclick="startConversation()">💬 Chat</button>
+          <button class="demo-button" onclick="refreshStatus()">🔄 Status</button>
+        </div>
+        
+        <div style="text-align: center; margin-top: 20px; color: rgba(255,255,255,0.8);">
+          <small><strong>Demo Mode:</strong> Use text input to test AI commands</small>
+          <br>
+          <small>Examples: "open chrome", "take a screenshot", "what time is it", "compose an email"</small>
+        </div>
       </div>
       
       <!-- Conversation Interface -->
@@ -240,6 +283,21 @@
       } catch (error) {
         console.error('Error:', error);
         updateStatus('Error: ' + error.message, false);
+      }
+    }
+    
+    async function startVoiceListening() {
+      try {
+        addMessage('🎤 Starting voice listening...', 'system');
+        const result = await window.electronAPI.startVoiceListening();
+        if (result.success) {
+          addMessage('✅ Voice listening started!', 'system');
+          updateVoiceStatus('Voice: Starting...', true);
+        } else {
+          addMessage('❌ Error: ' + result.message, 'system');
+        }
+      } catch (error) {
+        addMessage('❌ Error: ' + error.message, 'system');
       }
     }
     
@@ -322,8 +380,14 @@
           status.initialized ? 'Storme is ready' : 'Storme not initialized',
           status.initialized
         );
+        
+        updateVoiceStatus(
+          status.listening ? 'Voice: Listening...' : 'Voice: Not listening',
+          status.listening
+        );
       } catch (error) {
         updateStatus('Error getting status', false);
+        updateVoiceStatus('Voice: Error', false);
       }
     }
     
@@ -333,9 +397,22 @@
       dot.className = 'status-dot ' + (active ? 'active' : 'inactive');
     }
     
+    function updateVoiceStatus(text, listening) {
+      document.getElementById('voiceText').textContent = text;
+      const dot = document.getElementById('voiceDot');
+      if (listening) {
+        dot.className = 'status-dot listening';
+      } else {
+        dot.className = 'status-dot ' + (listening ? 'active' : 'inactive');
+      }
+    }
+    
     // Initialize status on load
     window.addEventListener('DOMContentLoaded', () => {
       setTimeout(refreshStatus, 1000);
+      
+      // Check status every 2 seconds
+      setInterval(refreshStatus, 2000);
     });
   </script>
 </body>

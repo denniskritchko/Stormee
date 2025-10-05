@@ -2,7 +2,7 @@
   "name": "stormee-electron-three",
   "version": "0.1.0",
   "private": true,
-  "main": "main-simple.js",
+  "main": "main.js",
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",

@@ -47,49 +47,35 @@ class GeminiClient {
       ? `\n\nConversation History:\n${conversationHistory.map(h => `${h.role}: ${h.content}`).join('\n')}`
       : '';
 
-    return `
-You are Storme, an AI assistant that can control computers through voice commands. Be VERY flexible with natural language.
+    return `You are Storme, an AI computer assistant that can control the user's computer through voice commands. You can:
+
+1. Open applications and websites
+2. Send emails and manage calendar
+3. Take screenshots and manage files
+4. Control browser and system operations
+5. Provide information and assistance
+
+${historyContext}
+
+User's voice command: "${userMessage}"
+
+Analyze the user's intent and respond with a JSON object containing:
+- "action": the system action to perform (app, system, email, calendar, document, browser, time, or none)
+- "parameters": object with action-specific parameters
+- "response": natural language response to the user
+- "requiresConfirmation": boolean if the action needs user confirmation
+- "confidence": 0-1 confidence score
 
 Available actions:
-- email: Any email-related task (send, compose, write, check, read emails)
-- app: Open applications (chrome, gmail, outlook, notepad, calculator, word, excel, etc.)
-- system: System commands (screenshot, time, system info, take picture, what time)
-- document: File operations (open, create, search, delete, find files)
-- calendar: Calendar operations (schedule, events, meetings)
+- "app": { "name": "application name" }
+- "system": { "command": "screenshot", "path": "optional path" }
+- "email": { "operation": "compose|read|send", "to": "email", "subject": "subject", "body": "body" }
+- "calendar": { "operation": "check|create", "title": "event title", "date": "date" }
+- "document": { "operation": "open|search", "path": "file path", "query": "search query" }
+- "browser": { "operation": "navigate|search", "url": "website", "query": "search term" }
+- "time": {} (get current time)
 
-Be flexible with language. Examples:
-- "I want to send an email" → email action
-- "open gmail" → app action with gmail
-- "open email" → email action (compose)
-- "take a screenshot" → system action
-- "what time is it" → system action
-- "open chrome" → app action
-- "write an email" → email action
-- "check my emails" → email action
-- "create a document" → document action
-- "send a message" → email action
-
-User said: "${userMessage}"${historyContext}
-
-Determine what action they want and return a JSON response:
-{
-  "action": "email|app|system|document|calendar|time|none",
-  "parameters": {
-    // relevant data for the action
-  },
-  "response": "natural response to confirm what you'll do",
-  "requiresConfirmation": false
-}
-
-Examples:
-- "I want to send an email" → {"action": "email", "parameters": {"operation": "compose"}, "response": "I'd be happy to help you compose an email! Who should I send it to, and what's the subject?", "requiresConfirmation": false}
-- "open gmail" → {"action": "email", "parameters": {"operation": "compose"}, "response": "Opening Gmail for you.", "requiresConfirmation": false}
-- "open chrome" → {"action": "app", "parameters": {"app": "chrome"}, "response": "Opening Chrome browser.", "requiresConfirmation": false}
-- "take a screenshot" → {"action": "system", "parameters": {"command": "screenshot"}, "response": "Taking a screenshot now.", "requiresConfirmation": false}
-- "what time is it" → {"action": "time", "parameters": {}, "response": "Let me check the current time for you.", "requiresConfirmation": false}
-
-Respond ONLY with valid JSON.
-    `;
+Respond with valid JSON only:`;
   }
 
   createFallbackResponse(userMessage, geminiText) {

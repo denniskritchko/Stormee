@@ -9,8 +9,10 @@ class WakeWordDetector extends EventEmitter {
 
   async initialize() {
     try {
+      console.log('🔧 Initializing wake word detector...');
       console.log('✅ Mock wake word detector initialized (demo mode)');
       console.log('🎤 For demo: Press Ctrl+Shift+W to simulate wake word');
+      return true;
     } catch (error) {
       console.error('❌ Failed to initialize wake word detector:', error);
       throw error;
@@ -24,7 +26,9 @@ class WakeWordDetector extends EventEmitter {
     }
     
     this.isListening = true;
-    console.log('🎤 Wake word detection active - Press Ctrl+Shift+W to simulate "Hey Storme"');
+    console.log('🎤 Wake word detection active');
+    console.log('🎤 Demo mode: Wake word will be simulated every 30 seconds');
+    console.log('🎤 Manual trigger: Press Ctrl+Shift+W to simulate "Hey Storme"');
     
     // For demo: simulate wake word every 30 seconds
     this.mockInterval = setInterval(() => {

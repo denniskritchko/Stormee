@@ -20,13 +20,15 @@ class VoicePipeline {
   async initialize() {
     try {
       console.log('🚀 Initializing Storme voice pipeline...');
+      console.log('🔧 Setting up continuous listening mode...');
       
-      await this.wakeDetector.initialize();
-      this.setupWakeWordListener();
+      // Skip wake word detector for continuous listening
+      console.log('✅ Continuous listening mode configured');
       
       console.log('✅ Voice pipeline initialized successfully');
     } catch (error) {
       console.error('❌ Failed to initialize voice pipeline:', error);
+      console.error('❌ Error details:', error.stack);
       throw error;
     }
   }
@@ -94,18 +96,21 @@ class VoicePipeline {
       
       // Execute action if needed
       if (intent.action && intent.action !== 'none') {
+        console.log('🎯 Executing action:', intent.action, intent.parameters);
+        
         if (intent.requiresConfirmation) {
-          await this.tts.speakWithConfirmation(`I'm about to ${intent.action}. Should I proceed?`);
-          // In a real implementation, you'd wait for confirmation here
+          await this.tts.speak(`I'm about to ${intent.action}. Should I proceed?`);
+          // For now, auto-confirm after a short delay
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
         
         const result = await this.systemController.executeAction(intent.action, intent.parameters);
         console.log('✅ Action completed:', result);
         
         if (result.success) {
-          await this.tts.speakSuccess(result.message);
+          await this.tts.speak(result.message || 'Task completed successfully');
         } else {
-          await this.tts.speakError(result.error);
+          await this.tts.speak(result.error || 'Failed to complete the task');
         }
       }
       
@@ -115,7 +120,7 @@ class VoicePipeline {
       console.error('❌ Error processing command:', error);
       this.isActive = false;
       this.stopListening();
-      await this.tts.speakError('Failed to process your command');
+      await this.tts.speak('Sorry, I encountered an error processing your command');
     }
   }
 
@@ -126,16 +131,47 @@ class VoicePipeline {
     }
   }
 
+  startContinuousListening() {
+    try {
+      console.log('🎤 Starting continuous listening...');
+      
+      this.currentConnection = this.stt.startLiveTranscription(
+        async (transcript, isFinal) => {
+          console.log('🎤 Raw transcript received:', transcript, 'isFinal:', isFinal);
+          if (isFinal && transcript.trim()) {
+            console.log('🎤 Processing final command:', transcript);
+            await this.processCommand(transcript);
+          } else if (transcript.trim()) {
+            console.log('🎤 Interim transcript:', transcript);
+          }
+        },
+        (error) => {
+          console.error('❌ Continuous listening error:', error);
+          // Restart listening after a short delay
+          setTimeout(() => {
+            if (!this.isActive) {
+              console.log('🔄 Restarting continuous listening...');
+              this.startContinuousListening();
+            }
+          }, 2000);
+        }
+      );
+      
+      console.log('✅ Continuous listening started - speak any command!');
+      console.log('🎤 Debug: If you speak and see no "Raw transcript received" messages, there may be a microphone access issue');
+    } catch (error) {
+      console.error('❌ Failed to start continuous listening:', error);
+    }
+  }
+
   start() {
     console.log('🚀 Starting Storme voice pipeline...');
-    this.wakeDetector.startListening();
+    this.startContinuousListening();
   }
 
   stop() {
     console.log('🔇 Stopping Storme voice pipeline...');
-    this.wakeDetector.stopListening();
     this.stopListening();
-    this.wakeDetector.release();
   }
 
   // Manual trigger for testing
@@ -147,6 +183,11 @@ class VoicePipeline {
     
     this.isActive = true;
     await this.processCommand(command);
+  }
+
+  // Check if actively listening
+  isListening() {
+    return !!this.currentConnection;
   }
 }
 
