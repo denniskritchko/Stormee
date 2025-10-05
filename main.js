@@ -2,6 +2,7 @@ const electron = require('electron');
 const app = electron.app;
 const BrowserWindow = electron.BrowserWindow;
 const screen = electron.screen;
+const globalShortcut = electron.globalShortcut;
 const path = require('path');
 
 function createWindow() {
@@ -18,6 +19,7 @@ function createWindow() {
     frame: false,
     transparent: true,
     alwaysOnTop: true,
+    hasShadow: false,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
@@ -50,10 +52,25 @@ function createWindow() {
       y: normalizedY
     });
   }, 16); // ~60fps
+  
+  return mainWindow;
 }
 
 app.whenReady().then(() => {
-  createWindow();
+  const mainWindow = createWindow();
+
+  // Register global shortcut for Cmd+Shift+S to toggle visibility
+  globalShortcut.register('CommandOrControl+Shift+S', () => {
+    if (mainWindow) {
+      if (mainWindow.isVisible()) {
+        mainWindow.hide();
+      } else {
+        mainWindow.show();
+        // Trigger pop animation when showing
+        mainWindow.webContents.send('trigger-pop-animation');
+      }
+    }
+  });
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -66,5 +83,10 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+app.on('will-quit', () => {
+  // Unregister all shortcuts
+  globalShortcut.unregisterAll();
 });
 

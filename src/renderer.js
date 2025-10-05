@@ -38,6 +38,9 @@ scene.add(pointLight);
 
 // Load the GLTF model
 let model = null;
+let modelOriginalY = 0; // Store original Y position
+let isAnimating = false;
+let animationTime = 0;
 
 // Track mouse position globally across entire screen
 const mouse = new THREE.Vector2();
@@ -52,16 +55,38 @@ ipcRenderer.on('cursor-position', (event, data) => {
   mouse.y = -data.y * 2; // Inverted Y for Three.js
 });
 
+// Listen for pop animation trigger
+ipcRenderer.on('trigger-pop-animation', () => {
+  if (model && !isAnimating) {
+    isAnimating = true;
+    animationTime = 0;
+  }
+});
+
 const loader = new GLTFLoader();
 console.log('Starting to load GLB...');
 
 loader.load(
-  'assets/Demo_16_eye_update_2.glb',
+  'assets/stormeedraft.glb',
   function(glb) {
     console.log('GLB loaded successfully!');
     console.log(glb);
     
     const object = glb.scene;
+    
+    // Remove any wireframe/helper objects
+    object.traverse((child) => {
+      if (child.isMesh) {
+        // Ensure materials are not in wireframe mode
+        if (child.material) {
+          child.material.wireframe = false;
+        }
+      }
+      // Hide any helper objects (bones, skeletons, etc)
+      if (child.type === 'Bone' || child.type === 'SkeletonHelper' || child.name.includes('Helper')) {
+        child.visible = false;
+      }
+    });
     
     // Calculate bounding box to properly scale and center the model
     const box = new THREE.Box3().setFromObject(object);
@@ -77,8 +102,9 @@ loader.load(
     object.position.sub(center.multiplyScalar(scale));
     
     model = object;
+    modelOriginalY = object.position.y; // Store original Y position
     scene.add(object);
-    console.log('Eye model added to scene');
+    console.log('Model added to scene');
   },
   function(xhr) {
     console.log((xhr.loaded / xhr.total * 100) + '% loaded');
@@ -92,13 +118,34 @@ loader.load(
 function animate() {
   requestAnimationFrame(animate);
   
-  // Make the eye follow the cursor across entire screen
+  // Make the model follow the cursor across entire screen
   if (model) {
-    // Create a 3D point from relative mouse position
-    // The multiplier controls how far the eye can look in each direction
-    target.set(mouse.x * 8, mouse.y * 8, 2);
+    // Handle pop animation
+    if (isAnimating) {
+      animationTime += 1;
+      
+      const hopHeight = 0.8;
+      
+      // Quick hop sequence: up -> down -> done
+      if (animationTime < 8) {
+        // Jump up instantly
+        model.position.y = modelOriginalY + hopHeight;
+      } else if (animationTime < 16) {
+        // Drop down instantly
+        model.position.y = modelOriginalY;
+      } else {
+        // Animation complete
+        model.position.y = modelOriginalY;
+        isAnimating = false;
+        animationTime = 0;
+      }
+    }
     
-    // Make the eye look at the target
+    // Create a 3D point from relative mouse position
+    // The multiplier controls how far it can look in each direction
+    target.set(mouse.x * 3, mouse.y * 3, 2);
+    
+    // Make the model look at the target
     model.lookAt(target);
   }
   
