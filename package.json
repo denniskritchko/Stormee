@@ -7,9 +7,9 @@
     "start": "electron ."
   },
   "dependencies": {
-    "three": "^0.168.0"
-  },
-  "devDependencies": {
-    "electron": "^30.0.0"
+    "dotenv": "^17.2.3",
+    "electron": "^38.2.1",
+    "three": "^0.168.0",
+    "three-obj-mtl-loader": "^1.0.3"
   }
 }
