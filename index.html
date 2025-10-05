@@ -3,21 +3,341 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Electron + Three.js</title>
+  <title>Storme - AI Assistant</title>
   <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      background: transparent;
+    html, body, #root { 
+      height: 100%; 
+      margin: 0; 
+      background: transparent; 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
     
-    canvas {
-      display: block;
+    .storme-container {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, rgba(0,0,0,0.8), rgba(0,0,0,0.6));
+      color: white;
     }
+    
+    .status-indicator {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: rgba(0,0,0,0.8);
+      padding: 15px;
+      border-radius: 10px;
+      font-size: 14px;
+    }
+    
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 8px;
+    }
+    
+    .status-dot.active { background: #00ff00; }
+    .status-dot.inactive { background: #ff4444; }
+    
+    .demo-controls {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      background: rgba(0,0,0,0.8);
+      padding: 20px;
+      border-radius: 10px;
+      max-width: 400px;
+    }
+    
+    .conversation-container {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 500px;
+      height: 400px;
+      background: rgba(0,0,0,0.9);
+      border-radius: 15px;
+      padding: 20px;
+      display: none;
+      flex-direction: column;
+    }
+    
+    .conversation-container.active {
+      display: flex;
+    }
+    
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      margin-bottom: 15px;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 10px;
+      background: rgba(255,255,255,0.05);
+    }
+    
+    .message {
+      margin: 8px 0;
+      padding: 8px 12px;
+      border-radius: 8px;
+      max-width: 80%;
+    }
+    
+    .message.user {
+      background: #4444ff;
+      margin-left: auto;
+      text-align: right;
+    }
+    
+    .message.ai {
+      background: #333;
+      margin-right: auto;
+    }
+    
+    .message.system {
+      background: #ffaa00;
+      color: black;
+      text-align: center;
+      font-weight: bold;
+    }
+    
+    .chat-input-container {
+      display: flex;
+      gap: 10px;
+    }
+    
+    .chat-input {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #666;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.1);
+      color: white;
+    }
+    
+    .chat-input::placeholder {
+      color: #aaa;
+    }
+    
+    .chat-send {
+      padding: 10px 20px;
+      background: #4444ff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    
+    .chat-send:hover {
+      background: #5555ff;
+    }
+    
+    .close-conversation {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      background: #ff4444;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 25px;
+      height: 25px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    
+    .demo-button {
+      padding: 10px 20px;
+      margin: 5px;
+      background: #4444ff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    
+    .demo-button:hover { background: #5555ff; }
+    .demo-button:active { background: #3333ff; }
+    
+    .demo-input {
+      padding: 8px;
+      margin: 5px;
+      border: 1px solid #666;
+      border-radius: 5px;
+      background: rgba(255,255,255,0.1);
+      color: white;
+      width: 200px;
+    }
+    
+    .demo-input::placeholder { color: #aaa; }
   </style>
 </head>
 <body>
-  <script src="renderer.js"></script>
+  <div id="root">
+    <div class="storme-container">
+      <div class="status-indicator">
+        <span class="status-dot inactive" id="statusDot"></span>
+        <span id="statusText">Initializing Storme...</span>
+      </div>
+      
+      <div class="demo-controls">
+        <h3 style="margin-top: 0;">🎤 Storme Demo</h3>
+        <input type="text" class="demo-input" id="commandInput" placeholder="Enter command (e.g., 'take a screenshot')">
+        <br>
+        <button class="demo-button" onclick="testCommand()">Test Command</button>
+        <button class="demo-button" onclick="startConversation()">Start Conversation</button>
+        <button class="demo-button" onclick="refreshStatus()">Refresh Status</button>
+        <br>
+        <small>Try: "take a screenshot", "open chrome", "compose email"</small>
+      </div>
+      
+      <!-- Conversation Interface -->
+      <div class="conversation-container" id="conversationContainer">
+        <button class="close-conversation" onclick="closeConversation()">×</button>
+        <h3 style="margin-top: 0; color: #00ff00;">💬 Storme Conversation</h3>
+        <div class="chat-messages" id="chatMessages">
+          <div class="message ai">
+            👋 Hi! I'm Storme, your AI assistant. What would you like me to help you with?
+          </div>
+        </div>
+        <div class="chat-input-container">
+          <input type="text" class="chat-input" id="chatInput" placeholder="Type your message..." onkeypress="handleChatKeyPress(event)">
+          <button class="chat-send" onclick="sendChatMessage()">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    let isListening = false;
+    let conversationActive = false;
+    
+    async function testCommand() {
+      const input = document.getElementById('commandInput');
+      const command = input.value.trim();
+      
+      if (!command) {
+        alert('Please enter a command');
+        return;
+      }
+      
+      try {
+        const result = await window.electronAPI.testCommand(command);
+        console.log('Command result:', result);
+        
+        if (result.success) {
+          updateStatus('Command processed: ' + command, true);
+        } else {
+          updateStatus('Error: ' + result.message, false);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        updateStatus('Error: ' + error.message, false);
+      }
+    }
+    
+    function startConversation() {
+      const container = document.getElementById('conversationContainer');
+      container.classList.add('active');
+      conversationActive = true;
+      document.getElementById('chatInput').focus();
+    }
+    
+    function closeConversation() {
+      const container = document.getElementById('conversationContainer');
+      container.classList.remove('active');
+      conversationActive = false;
+    }
+    
+    function handleChatKeyPress(event) {
+      if (event.key === 'Enter') {
+        sendChatMessage();
+      }
+    }
+    
+    async function sendChatMessage() {
+      const input = document.getElementById('chatInput');
+      const message = input.value.trim();
+      
+      if (!message) return;
+      
+      // Add user message to chat
+      addMessage(message, 'user');
+      input.value = '';
+      
+      // Show typing indicator
+      addMessage('🤔 Thinking...', 'system');
+      
+      try {
+        const result = await window.electronAPI.testCommand(message);
+        console.log('Chat result:', result);
+        
+        // Remove typing indicator
+        removeLastMessage();
+        
+        if (result.success) {
+          addMessage(result.message, 'ai');
+          
+          // If it's asking for more details, show as system message
+          if (result.data && result.data.status === 'waiting_for_details') {
+            addMessage('💬 ' + result.message, 'system');
+          }
+        } else {
+          addMessage('❌ ' + result.message, 'ai');
+        }
+      } catch (error) {
+        removeLastMessage();
+        addMessage('❌ Error: ' + error.message, 'ai');
+      }
+    }
+    
+    function addMessage(text, type) {
+      const messagesContainer = document.getElementById('chatMessages');
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `message ${type}`;
+      messageDiv.textContent = text;
+      messagesContainer.appendChild(messageDiv);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+    
+    function removeLastMessage() {
+      const messagesContainer = document.getElementById('chatMessages');
+      const lastMessage = messagesContainer.lastElementChild;
+      if (lastMessage && lastMessage.classList.contains('system')) {
+        messagesContainer.removeChild(lastMessage);
+      }
+    }
+    
+    async function refreshStatus() {
+      try {
+        const status = await window.electronAPI.getStatus();
+        updateStatus(
+          status.initialized ? 'Storme is ready' : 'Storme not initialized',
+          status.initialized
+        );
+      } catch (error) {
+        updateStatus('Error getting status', false);
+      }
+    }
+    
+    function updateStatus(text, active) {
+      document.getElementById('statusText').textContent = text;
+      const dot = document.getElementById('statusDot');
+      dot.className = 'status-dot ' + (active ? 'active' : 'inactive');
+    }
+    
+    // Initialize status on load
+    window.addEventListener('DOMContentLoaded', () => {
+      setTimeout(refreshStatus, 1000);
+    });
+  </script>
 </body>
 </html>
 
